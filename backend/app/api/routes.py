@@ -1,20 +1,10 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File
 from PIL import Image
-import io
+import shutil
+import os
 
 
 router = APIRouter()
-
-
-
-@router.get("/predict")
-def predict():
-
-    return {
-        "food": "Pizza",
-        "calories": 285
-    }
-
 
 
 
@@ -23,33 +13,37 @@ async def upload_image(
     file: UploadFile = File(...)
 ):
 
-    try:
 
-        contents = await file.read()
+    upload_path = (
+        "uploads/"
+        + file.filename
+    )
 
-        image = Image.open(
-            io.BytesIO(contents)
+
+    os.makedirs(
+        "uploads",
+        exist_ok=True
+    )
+
+
+    with open(
+        upload_path,
+        "wb"
+    ) as buffer:
+
+        shutil.copyfileobj(
+            file.file,
+            buffer
         )
 
 
-        return {
 
-            "filename": file.filename,
+    return {
 
-            "content_type": file.content_type,
+        "message":
+        "Image received",
 
-            "width": image.width,
+        "path":
+        upload_path
 
-            "height": image.height,
-
-            "message": "Image uploaded successfully"
-
-        }
-
-
-    except Exception as e:
-
-        raise HTTPException(
-            status_code=400,
-            detail=str(e)
-        )
+    }
