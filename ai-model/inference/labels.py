@@ -1,13 +1,10 @@
-LABELS = {
+from torchvision.datasets import Food101
 
-0:"pizza",
 
-1:"hamburger",
+dataset = Food101(
+    root="../data",
+    split="train"
+)
 
-2:"rice",
 
-3:"sushi",
-
-4:"salad"
-
-}
+LABELS = dataset.classes

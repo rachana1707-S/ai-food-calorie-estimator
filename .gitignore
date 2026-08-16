@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment variables
+.env
+
+# ML model files
+*.keras
+*.h5
+*.hdf5
+*.ckpt
+
+# Datasets
+ai-model/data/food-101/
+ai-model/data/*.zip
+
+# Uploaded images
+backend/uploads/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# macOS
+.DS_Store

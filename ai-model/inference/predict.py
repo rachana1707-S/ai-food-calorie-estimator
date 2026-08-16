@@ -1,11 +1,35 @@
 import torch
+
 from torchvision import models, transforms
+
 from PIL import Image
 
+from .labels import LABELS
 
-model = models.resnet50(
-    weights="DEFAULT"
+
+
+model = models.resnet50()
+
+
+model.fc = torch.nn.Linear(
+
+    model.fc.in_features,
+
+    101
+
 )
+
+
+
+model.load_state_dict(
+
+    torch.load(
+        "../models/food101_resnet50.pth",
+        map_location="cpu"
+    )
+
+)
+
 
 
 model.eval()
@@ -16,15 +40,7 @@ transform = transforms.Compose([
 
     transforms.Resize((224,224)),
 
-    transforms.ToTensor(),
-
-    transforms.Normalize(
-
-        mean=[0.485,0.456,0.406],
-
-        std=[0.229,0.224,0.225]
-
-    )
+    transforms.ToTensor()
 
 ])
 
@@ -33,7 +49,9 @@ transform = transforms.Compose([
 def predict_food(image_path):
 
 
-    image = Image.open(image_path)
+    image = Image.open(
+        image_path
+    )
 
 
     image = transform(image)
@@ -49,10 +67,29 @@ def predict_food(image_path):
 
 
 
-    prediction = torch.argmax(
+    probabilities = torch.softmax(
         output,
         dim=1
     )
 
 
-    return prediction.item()
+    confidence, index = torch.max(
+        probabilities,
+        1
+    )
+
+
+    food = LABELS[index.item()]
+
+
+    return {
+
+        "food":food,
+
+        "confidence":
+        round(
+            confidence.item()*100,
+            2
+        )
+
+    }
