@@ -6,22 +6,21 @@ from fastapi import (
     APIRouter,
     UploadFile,
     File,
-    HTTPException
+    HTTPException,
 )
 
 from app.services.ai_service import predict_food
+from app.services.nutrition_service import get_nutrition
 
 
 router = APIRouter()
 
-
 UPLOAD_FOLDER = "uploads"
-
 
 ALLOWED_TYPES = {
     "image/jpeg",
     "image/png",
-    "image/webp"
+    "image/webp",
 }
 
 
@@ -29,90 +28,69 @@ ALLOWED_TYPES = {
 async def upload_image(
     file: UploadFile = File(...)
 ):
-
-    # ----------------------------------------------
     # Validate file type
-    # ----------------------------------------------
-
     if file.content_type not in ALLOWED_TYPES:
-
         raise HTTPException(
             status_code=400,
-            detail="Only JPEG, PNG, and WebP images are supported."
+            detail="Only JPEG, PNG, and WebP images are supported.",
         )
 
-
-    # ----------------------------------------------
-    # Create upload directory
-    # ----------------------------------------------
-
+    # Create uploads folder
     os.makedirs(
         UPLOAD_FOLDER,
-        exist_ok=True
+        exist_ok=True,
     )
 
-
-    # ----------------------------------------------
     # Create unique filename
-    # ----------------------------------------------
-
     extension = os.path.splitext(
         file.filename
-    )[1]
+    )[1].lower()
 
-    filename = (
-        f"{uuid.uuid4()}{extension}"
-    )
+    filename = f"{uuid.uuid4()}{extension}"
 
     file_path = os.path.join(
         UPLOAD_FOLDER,
-        filename
+        filename,
     )
 
-
-    # ----------------------------------------------
-    # Save image
-    # ----------------------------------------------
-
-    with open(
-        file_path,
-        "wb"
-    ) as buffer:
-
-        shutil.copyfileobj(
-            file.file,
-            buffer
-        )
-
-
-    # ----------------------------------------------
-    # AI prediction
-    # ----------------------------------------------
-
     try:
+        # Save uploaded image
+        with open(
+            file_path,
+            "wb",
+        ) as buffer:
+            shutil.copyfileobj(
+                file.file,
+                buffer,
+            )
 
+        # AI food prediction
         prediction = predict_food(
             file_path
         )
 
-    except Exception as error:
-
-        raise HTTPException(
-            status_code=500,
-            detail=f"AI prediction failed: {str(error)}"
+        # USDA nutrition lookup
+        nutrition = get_nutrition(
+            prediction["food"]
         )
 
+        # Final API response
+        return {
+            "filename": file.filename,
+            "food": prediction["food"],
+            "confidence": prediction["confidence"],
+            "nutrition": nutrition,
+        }
 
-    # ----------------------------------------------
-    # Response
-    # ----------------------------------------------
+    except HTTPException:
+        raise
 
-    return {
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Prediction failed: {str(error)}",
+        )
 
-        "filename": file.filename,
-
-        "food": prediction["food"],
-
-        "confidence": prediction["confidence"]
-
-    }
+    finally:
+        # Close uploaded file
+        await file.close()
