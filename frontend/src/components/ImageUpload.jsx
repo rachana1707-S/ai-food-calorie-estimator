@@ -1,4 +1,8 @@
-import { useState } from "react";
+import {
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 
 import {
     Camera,
@@ -22,32 +26,116 @@ import { analyzeFoodImage } from "../services/api";
 import "./ImageUpload.css";
 
 
+const MAX_FILE_SIZE =
+    10 * 1024 * 1024;
+
+const ALLOWED_FILE_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+];
+
+
 function ImageUpload() {
 
-    const [image, setImage] = useState(null);
+    const [image, setImage] =
+        useState(null);
 
-    const [preview, setPreview] = useState(null);
+    const [preview, setPreview] =
+        useState(null);
 
-    const [result, setResult] = useState(null);
+    const [result, setResult] =
+        useState(null);
 
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] =
+        useState(false);
 
-    const [error, setError] = useState("");
+    const [error, setError] =
+        useState("");
+
+    const [isDragging, setIsDragging] =
+        useState(false);
 
 
-    const handleImageChange = (event) => {
+    const fileInputRef =
+        useRef(null);
 
-        const file = event.target.files[0];
+
+    /*
+     * Clean up object URL when
+     * preview changes or component unmounts.
+     */
+    useEffect(() => {
+
+        return () => {
+
+            if (preview) {
+                URL.revokeObjectURL(
+                    preview
+                );
+            }
+
+        };
+
+    }, [preview]);
+
+
+    /*
+     * Validate and select an image.
+     *
+     * Used by both:
+     * 1. File browser
+     * 2. Drag and drop
+     */
+    const handleFile = (file) => {
 
         if (!file) {
             return;
         }
 
+
+        if (
+            !ALLOWED_FILE_TYPES.includes(
+                file.type
+            )
+        ) {
+
+            setError(
+                "Please upload a JPG, PNG, or WEBP image."
+            );
+
+            return;
+        }
+
+
+        if (
+            file.size > MAX_FILE_SIZE
+        ) {
+
+            setError(
+                "Image size must be 10 MB or less."
+            );
+
+            return;
+        }
+
+
+        if (preview) {
+
+            URL.revokeObjectURL(
+                preview
+            );
+
+        }
+
+
+        const previewUrl =
+            URL.createObjectURL(file);
+
+
         setImage(file);
 
-        setPreview(
-            URL.createObjectURL(file)
-        );
+        setPreview(previewUrl);
 
         setResult(null);
 
@@ -55,7 +143,103 @@ function ImageUpload() {
     };
 
 
+    /*
+     * Regular file picker.
+     */
+    const handleImageChange = (
+        event
+    ) => {
+
+        const file =
+            event.target.files?.[0];
+
+        handleFile(file);
+    };
+
+
+    /*
+     * Drag events.
+     */
+    const handleDragEnter = (
+        event
+    ) => {
+
+        event.preventDefault();
+
+        event.stopPropagation();
+
+        setIsDragging(true);
+    };
+
+
+    const handleDragOver = (
+        event
+    ) => {
+
+        event.preventDefault();
+
+        event.stopPropagation();
+
+        setIsDragging(true);
+    };
+
+
+    const handleDragLeave = (
+        event
+    ) => {
+
+        event.preventDefault();
+
+        event.stopPropagation();
+
+
+        /*
+         * Prevent flickering when
+         * moving over child elements.
+         */
+        if (
+            event.currentTarget.contains(
+                event.relatedTarget
+            )
+        ) {
+            return;
+        }
+
+
+        setIsDragging(false);
+    };
+
+
+    const handleDrop = (
+        event
+    ) => {
+
+        event.preventDefault();
+
+        event.stopPropagation();
+
+        setIsDragging(false);
+
+
+        const file =
+            event.dataTransfer
+                .files?.[0];
+
+
+        handleFile(file);
+    };
+
+
     const removeImage = () => {
+
+        if (preview) {
+
+            URL.revokeObjectURL(
+                preview
+            );
+
+        }
+
 
         setImage(null);
 
@@ -64,6 +248,16 @@ function ImageUpload() {
         setResult(null);
 
         setError("");
+
+        setIsDragging(false);
+
+
+        if (fileInputRef.current) {
+
+            fileInputRef.current.value =
+                "";
+
+        }
     };
 
 
@@ -89,7 +283,9 @@ function ImageUpload() {
 
 
             const data =
-                await analyzeFoodImage(image);
+                await analyzeFoodImage(
+                    image
+                );
 
 
             setResult(data);
@@ -97,6 +293,7 @@ function ImageUpload() {
         } catch (err) {
 
             console.error(err);
+
 
             setError(
                 err.message ||
@@ -111,11 +308,14 @@ function ImageUpload() {
     };
 
 
-    const formatFoodName = (name) => {
+    const formatFoodName = (
+        name
+    ) => {
 
         if (!name) {
             return "";
         }
+
 
         return name
             .replaceAll("_", " ")
@@ -152,7 +352,9 @@ function ImageUpload() {
 
                         <div className="brand-logo">
 
-                            <Sparkles size={20} />
+                            <Sparkles
+                                size={20}
+                            />
 
                         </div>
 
@@ -196,7 +398,9 @@ function ImageUpload() {
 
                     <div className="hero-badge">
 
-                        <Sparkles size={14} />
+                        <Sparkles
+                            size={14}
+                        />
 
                         AI-POWERED FOOD ANALYSIS
 
@@ -230,7 +434,9 @@ function ImageUpload() {
 
                         <div>
 
-                            <CheckCircle2 size={16} />
+                            <CheckCircle2
+                                size={16}
+                            />
 
                             Food Recognition
 
@@ -239,7 +445,9 @@ function ImageUpload() {
 
                         <div>
 
-                            <CheckCircle2 size={16} />
+                            <CheckCircle2
+                                size={16}
+                            />
 
                             Calorie Estimates
 
@@ -248,7 +456,9 @@ function ImageUpload() {
 
                         <div>
 
-                            <CheckCircle2 size={16} />
+                            <CheckCircle2
+                                size={16}
+                            />
 
                             Nutrition Insights
 
@@ -271,7 +481,23 @@ function ImageUpload() {
 
                             <label
                                 htmlFor="food-image"
-                                className="drop-zone"
+                                className={`drop-zone ${
+                                    isDragging
+                                        ? "dragging"
+                                        : ""
+                                }`}
+                                onDragEnter={
+                                    handleDragEnter
+                                }
+                                onDragOver={
+                                    handleDragOver
+                                }
+                                onDragLeave={
+                                    handleDragLeave
+                                }
+                                onDrop={
+                                    handleDrop
+                                }
                             >
 
                                 <div className="upload-icon-wrapper">
@@ -284,15 +510,25 @@ function ImageUpload() {
 
 
                                 <h3>
-                                    Upload your food
+
+                                    {isDragging
+                                        ? "Drop your food image here"
+                                        : "Upload your food"}
+
                                 </h3>
 
 
                                 <p>
 
-                                    Drag & drop your
-                                    image here or browse
-                                    your device
+                                    {isDragging
+                                        ? "Release the image to upload"
+                                        : (
+                                            <>
+                                                Drag & drop your
+                                                image here or browse
+                                                your device
+                                            </>
+                                        )}
 
                                 </p>
 
@@ -320,7 +556,9 @@ function ImageUpload() {
 
                                 <div className="choose-button">
 
-                                    <Upload size={16} />
+                                    <Upload
+                                        size={16}
+                                    />
 
                                     Choose Image
 
@@ -357,7 +595,9 @@ function ImageUpload() {
                                         aria-label="Remove selected image"
                                     >
 
-                                        <X size={18} />
+                                        <X
+                                            size={18}
+                                        />
 
                                     </button>
 
@@ -390,6 +630,7 @@ function ImageUpload() {
 
 
                         <input
+                            ref={fileInputRef}
                             id="food-image"
                             type="file"
                             accept="image/jpeg,image/png,image/webp"
@@ -402,7 +643,9 @@ function ImageUpload() {
 
                         <button
                             className="analyze-button"
-                            onClick={uploadImage}
+                            onClick={
+                                uploadImage
+                            }
                             disabled={
                                 !image ||
                                 loading
@@ -447,7 +690,9 @@ function ImageUpload() {
 
                             <div className="error-message">
 
-                                <X size={17} />
+                                <X
+                                    size={17}
+                                />
 
                                 {error}
 
@@ -469,7 +714,9 @@ function ImageUpload() {
 
                         <div className="loading-animation">
 
-                            <Sparkles size={23} />
+                            <Sparkles
+                                size={23}
+                            />
 
                         </div>
 
@@ -541,15 +788,19 @@ function ImageUpload() {
 
                                 <img
                                     src={preview}
-                                    alt={formatFoodName(
-                                        result.food
-                                    )}
+                                    alt={
+                                        formatFoodName(
+                                            result.food
+                                        )
+                                    }
                                 />
 
 
                                 <div className="image-label">
 
-                                    <Camera size={14} />
+                                    <Camera
+                                        size={14}
+                                    />
 
                                     Analyzed Image
 
@@ -629,7 +880,9 @@ function ImageUpload() {
 
                                 <div className="model-info">
 
-                                    <Sparkles size={14} />
+                                    <Sparkles
+                                        size={14}
+                                    />
 
                                     EfficientNetV2B0
 
@@ -669,7 +922,9 @@ function ImageUpload() {
 
 
                                 <NutritionCard
-                                    icon={<Flame />}
+                                    icon={
+                                        <Flame />
+                                    }
                                     label="Calories"
                                     value={
                                         result.nutrition
@@ -682,7 +937,9 @@ function ImageUpload() {
 
 
                                 <NutritionCard
-                                    icon={<Beef />}
+                                    icon={
+                                        <Beef />
+                                    }
                                     label="Protein"
                                     value={
                                         result.nutrition
@@ -695,7 +952,9 @@ function ImageUpload() {
 
 
                                 <NutritionCard
-                                    icon={<Wheat />}
+                                    icon={
+                                        <Wheat />
+                                    }
                                     label="Carbohydrates"
                                     value={
                                         result.nutrition
@@ -708,7 +967,9 @@ function ImageUpload() {
 
 
                                 <NutritionCard
-                                    icon={<Droplets />}
+                                    icon={
+                                        <Droplets />
+                                    }
                                     label="Fat"
                                     value={
                                         result.nutrition
@@ -727,7 +988,8 @@ function ImageUpload() {
 
                         {/* ================= USDA ================= */}
 
-                        {result.nutrition?.food_name && (
+                        {result.nutrition
+                            ?.food_name && (
 
                             <div className="source-card">
 
@@ -778,7 +1040,8 @@ function ImageUpload() {
 
                 {/* ================= HOW IT WORKS ================= */}
 
-                {!result && !loading && (
+                {!result &&
+                    !loading && (
 
                     <section className="how-section">
 
@@ -801,15 +1064,19 @@ function ImageUpload() {
 
                             <Step
                                 number="01"
-                                icon={<Upload />}
+                                icon={
+                                    <Upload />
+                                }
                                 title="Upload"
-                                description="Choose a clear photo of your food."
+                                description="Choose or drag and drop a clear photo of your food."
                             />
 
 
                             <Step
                                 number="02"
-                                icon={<ScanSearch />}
+                                icon={
+                                    <ScanSearch />
+                                }
                                 title="AI Analysis"
                                 description="EfficientNetV2B0 identifies your food."
                             />
@@ -817,7 +1084,9 @@ function ImageUpload() {
 
                             <Step
                                 number="03"
-                                icon={<Flame />}
+                                icon={
+                                    <Flame />
+                                }
                                 title="Get Insights"
                                 description="See calories and nutrition information."
                             />

@@ -1491,3 +1491,89 @@ footer p {
     }
 }
 
+
+.drop-zone {
+    cursor: pointer;
+    transition:
+        border-color 0.25s ease,
+        background 0.25s ease,
+        transform 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.drop-zone:hover {
+    border-color: var(--teal);
+    background: rgba(73, 164, 187, 0.04);
+}
+
+.drop-zone.dragging {
+    border-color: var(--mint);
+    background: rgba(21, 216, 179, 0.08);
+    transform: scale(1.01);
+    box-shadow: 0 15px 40px rgba(21, 216, 179, 0.12);
+}
+
+.error-message {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    color: #be123c;
+    font-size: 14px;
+}
+
+/* ================================
+   DRAG AND DROP
+================================ */
+
+.drop-zone {
+    cursor: pointer;
+    transition:
+        border-color 0.25s ease,
+        background-color 0.25s ease,
+        transform 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.drop-zone:hover {
+    border-color: #49a4bb;
+    background: rgba(
+        73,
+        164,
+        187,
+        0.05
+    );
+}
+
+.drop-zone.dragging {
+    border-color: #15d8b3;
+    background: rgba(
+        21,
+        216,
+        179,
+        0.1
+    );
+
+    transform: scale(1.01);
+
+    box-shadow:
+        0 18px 45px
+        rgba(
+            21,
+            216,
+            179,
+            0.15
+        );
+}
+
+.drop-zone.dragging
+.upload-icon-wrapper {
+    transform: translateY(-4px)
+        scale(1.08);
+}
+
+.upload-icon-wrapper {
+    transition:
+        transform 0.25s ease;
+}
