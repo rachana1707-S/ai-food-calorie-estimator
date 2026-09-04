@@ -4,6 +4,7 @@ import {
     Brain,
     CheckCircle2,
     FolderOpen,
+    Image as ImageIcon,
     Loader2,
     PieChart,
     Plus,
@@ -11,7 +12,8 @@ import {
     Scale,
     Sparkles,
     Trash2,
-    Upload
+    Upload,
+    Utensils
 } from "lucide-react";
 import {
     analyzeFoodImage,
@@ -46,11 +48,14 @@ function ImageUpload(){
 
     useEffect(()=>{
         return()=>{
-            if(preview){
+            if(
+                preview&&
+                !mealItems.some((item)=>item.image===preview)
+            ){
                 URL.revokeObjectURL(preview);
             }
         };
-    },[preview]);
+    },[preview,mealItems]);
 
     const validateFile=(file)=>{
         if(!ALLOWED_FILE_TYPES.includes(file.type)){
@@ -71,7 +76,10 @@ function ImageUpload(){
             return;
         }
 
-        if(preview){
+        if(
+            preview&&
+            !mealItems.some((item)=>item.image===preview)
+        ){
             URL.revokeObjectURL(preview);
         }
 
@@ -84,7 +92,13 @@ function ImageUpload(){
     };
 
     const handleFileChange=(event)=>{
-        handleFile(event.target.files[0]);
+        const file=event.target.files[0];
+
+        if(file){
+            handleFile(file);
+        }
+
+        event.target.value="";
     };
 
     const handleDragOver=(event)=>{
@@ -102,7 +116,10 @@ function ImageUpload(){
         setIsDragging(false);
 
         const file=event.dataTransfer.files[0];
-        handleFile(file);
+
+        if(file){
+            handleFile(file);
+        }
     };
 
     const handleAnalyze=async()=>{
@@ -180,10 +197,6 @@ function ImageUpload(){
             setResult(null);
             setSelectedUnit("");
             setQuantity(1);
-
-            if(inputRef.current){
-                inputRef.current.value="";
-            }
         }catch(err){
             setError(err.message);
         }finally{
@@ -191,28 +204,27 @@ function ImageUpload(){
         }
     };
 
-    const handleAddAnother=()=>{
-        setSelectedFile(null);
-        setPreview(null);
-        setResult(null);
-        setSelectedUnit("");
-        setQuantity(1);
-        setError("");
+    const handleRemoveFood=(id)=>{
+        const item=mealItems.find(
+            (food)=>food.id===id
+        );
 
-        if(inputRef.current){
-            inputRef.current.value="";
+        if(item?.image){
+            URL.revokeObjectURL(item.image);
         }
 
-        inputRef.current?.click();
-    };
-
-    const handleRemoveFood=(id)=>{
         setMealItems((current)=>
-            current.filter((item)=>item.id!==id)
+            current.filter((food)=>food.id!==id)
         );
     };
 
     const handleClearMeal=()=>{
+        mealItems.forEach((item)=>{
+            if(item.image){
+                URL.revokeObjectURL(item.image);
+            }
+        });
+
         setMealItems([]);
         setSelectedFile(null);
         setPreview(null);
@@ -220,20 +232,11 @@ function ImageUpload(){
         setSelectedUnit("");
         setQuantity(1);
         setError("");
-
-        if(inputRef.current){
-            inputRef.current.value="";
-        }
     };
 
     const handleUnitChange=(unit)=>{
         setSelectedUnit(unit);
-
-        if(unit==="gram"){
-            setQuantity(100);
-        }else{
-            setQuantity(1);
-        }
+        setQuantity(unit==="gram"?100:1);
     };
 
     const decreaseQuantity=()=>{
@@ -244,7 +247,12 @@ function ImageUpload(){
             return;
         }
 
-        setQuantity(Math.max(current-0.5,0.5));
+        setQuantity(
+            Math.max(
+                Number((current-0.5).toFixed(1)),
+                0.5
+            )
+        );
     };
 
     const increaseQuantity=()=>{
@@ -255,7 +263,9 @@ function ImageUpload(){
             return;
         }
 
-        setQuantity(current+1);
+        setQuantity(
+            Number((current+0.5).toFixed(1))
+        );
     };
 
     const mealTotals=mealItems.reduce(
@@ -289,23 +299,54 @@ function ImageUpload(){
     return(
         <div className={`app-shell ${isResultMode?"result-mode":""}`}>
             <header className="navbar">
-                <div className="brand">
-                    <div className="brand-icon">
-                        <Apple size={21}/>
+                <div className="nav-brand">
+                    <div className="nav-logo">
+                        <Apple size={22}/>
                     </div>
 
-                    <span className="brand-name">
-                        Food<span>AI</span>
-                    </span>
+                    <div className="nav-title">
+                        <h1>
+                            AI Calorie Estimator
+                        </h1>
 
-                    <span className="brand-subtitle">
-                        Smart Nutrition
-                    </span>
+                        <span>
+                            Food recognition & nutrition
+                        </span>
+                    </div>
                 </div>
 
-                <div className="status-badge">
-                    <span className="status-dot"></span>
-                    AI Online
+                <div className="nav-center">
+                    <div className="nav-feature">
+                        <Brain size={15}/>
+                        AI Recognition
+                    </div>
+
+                    <div className="nav-feature">
+                        <Scale size={15}/>
+                        Portion Aware
+                    </div>
+
+                    <div className="nav-feature">
+                        <PieChart size={15}/>
+                        Meal Tracking
+                    </div>
+                </div>
+
+                <div className="nav-actions">
+                    {mealItems.length>0&&(
+                        <div className="nav-meal">
+                            <Utensils size={14}/>
+                            {mealItems.length}{" "}
+                            {mealItems.length===1
+                                ?"food"
+                                :"foods"}
+                        </div>
+                    )}
+
+                    <div className="status-badge">
+                        <span className="status-dot"></span>
+                        AI Online
+                    </div>
                 </div>
             </header>
 
@@ -319,63 +360,128 @@ function ImageUpload(){
 
             {!isResultMode?(
                 <main className="landing-page">
-                    <section className="hero">
-                        <div className="hero-badge">
-                            <Sparkles size={13}/>
-                            AI-POWERED FOOD ANALYSIS
+                    <section className="intro-section">
+                        <div className="intro-left">
+                            <div className="intro-label">
+                                <Sparkles size={15}/>
+                                SMART FOOD ANALYSIS
+                            </div>
+
+                            <h2>
+                                Calculate nutrition from
+                                <span> your food photos.</span>
+                            </h2>
+
+                            <p>
+                                Upload a food image, let our AI identify
+                                what you're eating, then enter the amount
+                                you consumed for a more accurate calorie
+                                and nutrition estimate.
+                            </p>
                         </div>
 
-                        <h1>
-                            Know what's <span>on your plate.</span>
-                        </h1>
+                        <div className="intro-stats">
+                            <Stat
+                                icon={<Brain size={19}/>}
+                                title="101"
+                                text="Food classes"
+                            />
 
-                        <p>
-                            Upload a food photo, let AI identify it,
-                            then enter the portion you consumed for a
-                            more accurate nutrition estimate.
-                        </p>
+                            <Stat
+                                icon={<Scale size={19}/>}
+                                title="Flexible"
+                                text="Portion sizes"
+                            />
 
-                        <div className="feature-row">
-                            <FeatureItem text="Food Recognition"/>
-                            <FeatureItem text="Calorie Estimates"/>
-                            <FeatureItem text="Multiple Foods"/>
+                            <Stat
+                                icon={<Utensils size={19}/>}
+                                title="Multiple"
+                                text="Foods per meal"
+                            />
                         </div>
                     </section>
 
                     <section className="upload-card">
                         {!preview?(
-                            <UploadZone
-                                inputRef={inputRef}
-                                isDragging={isDragging}
-                                handleDragOver={handleDragOver}
-                                handleDragLeave={handleDragLeave}
-                                handleDrop={handleDrop}
-                            />
+                            <div
+                                className={`drop-zone ${isDragging?"dragging":""}`}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                onClick={()=>
+                                    inputRef.current?.click()
+                                }
+                            >
+                                <div className="drop-icon">
+                                    <ImageIcon size={28}/>
+                                </div>
+
+                                <h3>
+                                    Upload your food photo
+                                </h3>
+
+                                <p>
+                                    Drag and drop an image here or browse
+                                    from your computer
+                                </p>
+
+                                <div className="file-info">
+                                    <span>JPG</span>
+                                    <span>PNG</span>
+                                    <span>WEBP</span>
+                                    <span>MAX 10MB</span>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    className="primary-button"
+                                    onClick={(event)=>{
+                                        event.stopPropagation();
+                                        inputRef.current?.click();
+                                    }}
+                                >
+                                    <FolderOpen size={16}/>
+                                    Choose Image
+                                </button>
+                            </div>
                         ):(
-                            <div className="selected-image-layout">
-                                <div className="selected-image-panel">
+                            <div className="selected-layout">
+                                <div className="selected-preview">
                                     <img
                                         src={preview}
                                         alt="Selected food"
-                                        className="selected-image"
                                     />
+
+                                    <div className="image-badge">
+                                        <CheckCircle2 size={14}/>
+                                        Image ready
+                                    </div>
                                 </div>
 
-                                <div className="selected-image-actions">
-                                    <span className="eyebrow">
-                                        READY TO ANALYZE
+                                <div className="selected-details">
+                                    <div className="selected-icon">
+                                        <Sparkles size={21}/>
+                                    </div>
+
+                                    <span className="section-label">
+                                        READY FOR AI ANALYSIS
                                     </span>
 
                                     <h3>
-                                        {selectedFile?.name}
+                                        Analyze this food
                                     </h3>
 
-                                    <p>
-                                        Our AI will identify the food
-                                        and suggest portion options.
+                                    <p className="file-name">
+                                        {selectedFile?.name}
                                     </p>
 
-                                    <div className="action-buttons">
+                                    <p className="selected-text">
+                                        FoodAI will identify the food and
+                                        then let you choose slices, pieces,
+                                        cups, servings or grams.
+                                    </p>
+
+                                    <div className="selected-actions">
                                         <button
                                             type="button"
                                             className="secondary-button"
@@ -389,7 +495,7 @@ function ImageUpload(){
 
                                         <button
                                             type="button"
-                                            className="primary-button"
+                                            className="primary-button no-margin"
                                             onClick={handleAnalyze}
                                             disabled={loading}
                                         >
@@ -403,7 +509,7 @@ function ImageUpload(){
                                                 </>
                                             ):(
                                                 <>
-                                                    <Sparkles size={15}/>
+                                                    <Brain size={15}/>
                                                     Analyze Food
                                                 </>
                                             )}
@@ -420,94 +526,122 @@ function ImageUpload(){
                         </div>
                     )}
 
-                    <section className="how-it-works">
-                        <Step
-                            number="1"
+                    <section className="steps-section">
+                        <ProcessStep
+                            number="01"
                             icon={<Upload size={18}/>}
                             title="Upload"
-                            text="Add a food photo"
+                            text="Add a clear food photo"
                         />
 
-                        <Step
-                            number="2"
+                        <ProcessStep
+                            number="02"
                             icon={<Brain size={18}/>}
                             title="Recognize"
-                            text="AI identifies it"
+                            text="AI identifies your food"
                         />
 
-                        <Step
-                            number="3"
+                        <ProcessStep
+                            number="03"
                             icon={<Scale size={18}/>}
-                            title="Portion"
-                            text="Enter what you ate"
+                            title="Set Portion"
+                            text="Enter slices, pieces or grams"
                         />
 
-                        <Step
-                            number="4"
+                        <ProcessStep
+                            number="04"
                             icon={<PieChart size={18}/>}
-                            title="Nutrition"
-                            text="View meal totals"
+                            title="Get Nutrition"
+                            text="See calories and macros"
                         />
                     </section>
                 </main>
             ):(
-                <main className="meal-layout">
+                <main className="result-layout">
                     <section className="analysis-panel">
+                        <div className="panel-heading">
+                            <div>
+                                <span className="section-label">
+                                    FOOD ANALYSIS
+                                </span>
+
+                                <h2>
+                                    {result
+                                        ?"Review detected food"
+                                        :"Add another food"}
+                                </h2>
+                            </div>
+                        </div>
+
                         {result?(
                             <>
-                                <div className="analysis-image-wrapper">
-                                    <img
-                                        src={preview}
-                                        alt="Analyzed food"
-                                        className="analysis-image"
-                                    />
-                                </div>
+                                <div className="analysis-top">
+                                    <div className="food-image-card">
+                                        <img
+                                            src={preview}
+                                            alt="Analyzed food"
+                                        />
+                                    </div>
 
-                                <div className="prediction-card">
-                                    <div>
-                                        <span className="eyebrow">
-                                            AI RESULT
+                                    <div className="prediction-card">
+                                        <div className="prediction-icon">
+                                            <Brain size={21}/>
+                                        </div>
+
+                                        <span className="section-label">
+                                            AI DETECTED
                                         </span>
 
-                                        <h2>
-                                            {result.food.replaceAll("_"," ")}
-                                        </h2>
+                                        <h3>
+                                            {result.food.replaceAll(
+                                                "_",
+                                                " "
+                                            )}
+                                        </h3>
 
                                         <p>
                                             EfficientNetV2B0 • Food-101
                                         </p>
-                                    </div>
 
-                                    <div className="confidence-box">
-                                        <span>Confidence</span>
+                                        <div className="confidence">
+                                            <span>
+                                                Confidence
+                                            </span>
 
-                                        <strong>
-                                            {result.confidence}%
-                                        </strong>
+                                            <strong>
+                                                {result.confidence}%
+                                            </strong>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div className="portion-card">
-                                    <div className="portion-heading">
-                                        <div className="portion-heading-icon">
-                                            <Scale size={17}/>
-                                        </div>
-
+                                    <div className="portion-title">
                                         <div>
+                                            <span className="section-label">
+                                                PORTION SIZE
+                                            </span>
+
                                             <h3>
                                                 How much did you eat?
                                             </h3>
 
                                             <p>
-                                                Choose a unit and enter
-                                                the amount consumed.
+                                                Choose a unit and enter the
+                                                amount you consumed.
                                             </p>
+                                        </div>
+
+                                        <div className="portion-title-icon">
+                                            <Scale size={20}/>
                                         </div>
                                     </div>
 
-                                    <div className="portion-control">
-                                        <div className="quantity-control">
-                                            <label>Amount</label>
+                                    <div className="portion-controls">
+                                        <div>
+                                            <label>
+                                                QUANTITY
+                                            </label>
 
                                             <div className="quantity-input">
                                                 <button
@@ -520,11 +654,6 @@ function ImageUpload(){
                                                 <input
                                                     type="number"
                                                     min="0.1"
-                                                    step={
-                                                        selectedUnit==="gram"
-                                                            ?"1"
-                                                            :"0.5"
-                                                    }
                                                     value={quantity}
                                                     onChange={(event)=>
                                                         setQuantity(
@@ -542,8 +671,10 @@ function ImageUpload(){
                                             </div>
                                         </div>
 
-                                        <div className="unit-control">
-                                            <label>Unit</label>
+                                        <div>
+                                            <label>
+                                                UNIT
+                                            </label>
 
                                             <div className="unit-options">
                                                 {result.portion_options?.map(
@@ -551,7 +682,7 @@ function ImageUpload(){
                                                         <button
                                                             key={option.value}
                                                             type="button"
-                                                            className={`unit-option ${
+                                                            className={`unit-button ${
                                                                 selectedUnit===option.value
                                                                     ?"selected"
                                                                     :""
@@ -570,113 +701,135 @@ function ImageUpload(){
                                         </div>
                                     </div>
 
-                                    <button
-                                        type="button"
-                                        className="primary-button add-food-button"
-                                        onClick={handleAddFood}
-                                        disabled={
-                                            nutritionLoading||
-                                            !quantity||
-                                            !selectedUnit
-                                        }
-                                    >
-                                        {nutritionLoading?(
-                                            <>
-                                                <Loader2
-                                                    size={15}
-                                                    className="spin"
-                                                />
-                                                Calculating...
-                                            </>
-                                        ):(
-                                            <>
-                                                <Plus size={15}/>
-                                                Add to Meal
-                                            </>
-                                        )}
-                                    </button>
+                                    <div className="portion-bottom">
+                                        <div>
+                                            <span>
+                                                Selected portion
+                                            </span>
+
+                                            <strong>
+                                                {quantity}{" "}
+                                                {formatUnit(
+                                                    selectedUnit,
+                                                    quantity
+                                                )}
+                                            </strong>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            className="primary-button no-margin"
+                                            onClick={handleAddFood}
+                                            disabled={
+                                                nutritionLoading||
+                                                !quantity||
+                                                !selectedUnit
+                                            }
+                                        >
+                                            {nutritionLoading?(
+                                                <>
+                                                    <Loader2
+                                                        size={15}
+                                                        className="spin"
+                                                    />
+                                                    Calculating...
+                                                </>
+                                            ):(
+                                                <>
+                                                    <Plus size={15}/>
+                                                    Add to Meal
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
                             </>
                         ):(
-                            <div className="add-food-state">
-                                <div className="add-food-icon">
-                                    <Plus size={26}/>
-                                </div>
+                            <div className="add-food-card">
+                                {preview?(
+                                    <>
+                                        <img
+                                            src={preview}
+                                            alt="New food"
+                                        />
 
-                                <span className="eyebrow">
-                                    ADD ANOTHER FOOD
-                                </span>
+                                        <div className="add-food-content">
+                                            <span className="section-label">
+                                                NEW FOOD
+                                            </span>
 
-                                <h2>
-                                    What's else on your plate?
-                                </h2>
+                                            <h3>
+                                                Ready to analyze
+                                            </h3>
 
-                                <p>
-                                    Add another food image and FoodAI
-                                    will include it in your meal total.
-                                </p>
+                                            <p>
+                                                {selectedFile?.name}
+                                            </p>
 
-                                <button
-                                    type="button"
-                                    className="primary-button"
-                                    onClick={()=>
-                                        inputRef.current?.click()
-                                    }
-                                >
-                                    <FolderOpen size={15}/>
-                                    Choose Food Image
-                                </button>
+                                            <div className="selected-actions">
+                                                <button
+                                                    className="secondary-button"
+                                                    type="button"
+                                                    onClick={()=>
+                                                        inputRef.current?.click()
+                                                    }
+                                                >
+                                                    Change
+                                                </button>
 
-                                {preview&&(
-                                    <button
-                                        type="button"
-                                        className="secondary-button"
-                                        onClick={handleAnalyze}
+                                                <button
+                                                    className="primary-button no-margin"
+                                                    type="button"
+                                                    onClick={handleAnalyze}
+                                                    disabled={loading}
+                                                >
+                                                    {loading?(
+                                                        <>
+                                                            <Loader2
+                                                                size={15}
+                                                                className="spin"
+                                                            />
+                                                            Analyzing...
+                                                        </>
+                                                    ):(
+                                                        <>
+                                                            <Brain size={15}/>
+                                                            Analyze
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                ):(
+                                    <div
+                                        className="add-food-empty"
+                                        onClick={()=>
+                                            inputRef.current?.click()
+                                        }
                                     >
-                                        Analyze Food
-                                    </button>
+                                        <div className="add-food-icon">
+                                            <Plus size={24}/>
+                                        </div>
+
+                                        <h3>
+                                            Add another food
+                                        </h3>
+
+                                        <p>
+                                            Upload another image to include
+                                            it in your meal total.
+                                        </p>
+
+                                        <button
+                                            type="button"
+                                            className="primary-button"
+                                        >
+                                            <FolderOpen size={15}/>
+                                            Choose Image
+                                        </button>
+                                    </div>
                                 )}
-                            </div>
-                        )}
-
-                        {!result&&preview&&(
-                            <div className="new-food-preview">
-                                <img
-                                    src={preview}
-                                    alt="New food"
-                                />
-
-                                <div>
-                                    <span className="eyebrow">
-                                        NEW FOOD
-                                    </span>
-
-                                    <h3>
-                                        {selectedFile?.name}
-                                    </h3>
-
-                                    <button
-                                        type="button"
-                                        className="primary-button"
-                                        onClick={handleAnalyze}
-                                        disabled={loading}
-                                    >
-                                        {loading?(
-                                            <>
-                                                <Loader2
-                                                    size={15}
-                                                    className="spin"
-                                                />
-                                                Analyzing...
-                                            </>
-                                        ):(
-                                            <>
-                                                <Sparkles size={15}/>
-                                                Analyze
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
                             </div>
                         )}
 
@@ -688,36 +841,43 @@ function ImageUpload(){
                     </section>
 
                     <section className="meal-panel">
-                        <div className="meal-heading">
+                        <div className="meal-header">
                             <div>
-                                <span className="eyebrow">
-                                    YOUR MEAL
+                                <span className="section-label">
+                                    CURRENT MEAL
                                 </span>
 
                                 <h2>
                                     Meal Summary
                                 </h2>
+
+                                <p>
+                                    Combined nutrition for all foods
+                                </p>
                             </div>
 
-                            <span className="meal-count">
+                            <div className="meal-count">
+                                <Utensils size={14}/>
                                 {mealItems.length}{" "}
                                 {mealItems.length===1
                                     ?"item"
                                     :"items"}
-                            </span>
+                            </div>
                         </div>
 
                         {mealItems.length===0?(
                             <div className="empty-meal">
-                                <Apple size={28}/>
+                                <div className="empty-meal-icon">
+                                    <Utensils size={25}/>
+                                </div>
 
                                 <h3>
-                                    No foods added yet
+                                    Your meal is empty
                                 </h3>
 
                                 <p>
-                                    Enter the portion above and add
-                                    the first food to your meal.
+                                    Choose your portion and add this
+                                    food to see the nutrition summary.
                                 </p>
                             </div>
                         ):(
@@ -759,32 +919,33 @@ function ImageUpload(){
                                                     )}
                                                 </strong>
 
-                                                <span>kcal</span>
+                                                <span>
+                                                    kcal
+                                                </span>
                                             </div>
 
                                             <button
                                                 type="button"
-                                                className="delete-food"
-                                                title="Remove food"
+                                                className="delete-button"
                                                 onClick={()=>
                                                     handleRemoveFood(item.id)
                                                 }
                                             >
-                                                <Trash2 size={14}/>
+                                                <Trash2 size={15}/>
                                             </button>
                                         </div>
                                     ))}
                                 </div>
 
-                                <div className="meal-total">
+                                <div className="nutrition-summary">
                                     <div className="total-calories">
                                         <div>
                                             <span>
-                                                Total Calories
+                                                TOTAL CALORIES
                                             </span>
 
                                             <p>
-                                                Combined meal estimate
+                                                Estimated meal total
                                             </p>
                                         </div>
 
@@ -792,11 +953,13 @@ function ImageUpload(){
                                             {Math.round(
                                                 mealTotals.calories
                                             )}
-                                            <small> kcal</small>
+                                            <small>
+                                                kcal
+                                            </small>
                                         </strong>
                                     </div>
 
-                                    <div className="macro-summary">
+                                    <div className="macro-grid">
                                         <Macro
                                             label="Protein"
                                             value={mealTotals.protein}
@@ -814,18 +977,15 @@ function ImageUpload(){
                                             value={mealTotals.fat}
                                         />
                                     </div>
-
-                                    <div className="meal-source">
-                                        <CheckCircle2 size={13}/>
-                                        USDA FoodData Central
-                                    </div>
                                 </div>
 
                                 <div className="meal-actions">
                                     <button
                                         type="button"
-                                        className="primary-button add-another-button"
-                                        onClick={handleAddAnother}
+                                        className="primary-button no-margin"
+                                        onClick={()=>
+                                            inputRef.current?.click()
+                                        }
                                     >
                                         <Plus size={15}/>
                                         Add Another Food
@@ -837,7 +997,7 @@ function ImageUpload(){
                                         onClick={handleClearMeal}
                                     >
                                         <RefreshCw size={14}/>
-                                        Start New Meal
+                                        New Meal
                                     </button>
                                 </div>
                             </>
@@ -849,77 +1009,45 @@ function ImageUpload(){
     );
 }
 
-function UploadZone({
-    inputRef,
-    isDragging,
-    handleDragOver,
-    handleDragLeave,
-    handleDrop
-}){
+function Stat({icon,title,text}){
     return(
-        <div
-            className={`drop-zone ${isDragging?"dragging":""}`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={()=>
-                inputRef.current?.click()
-            }
-        >
-            <div className="upload-icon">
-                <Upload size={26}/>
-            </div>
-
-            <h2>
-                Upload your food image
-            </h2>
-
-            <p>
-                Drag & drop or click to browse
-            </p>
-
-            <span className="formats">
-                JPG • PNG • WEBP • MAX 10MB
-            </span>
-
-            <button
-                type="button"
-                className="primary-button"
-                onClick={(event)=>{
-                    event.stopPropagation();
-                    inputRef.current?.click();
-                }}
-            >
-                <FolderOpen size={15}/>
-                Choose Image
-            </button>
-        </div>
-    );
-}
-
-function FeatureItem({text}){
-    return(
-        <div className="feature-item">
-            <CheckCircle2 size={15}/>
-            {text}
-        </div>
-    );
-}
-
-function Step({number,icon,title,text}){
-    return(
-        <div className="step">
-            <div className="step-icon">
+        <div className="stat-card">
+            <div className="stat-icon">
                 {icon}
             </div>
 
             <div>
-                <div className="step-title">
-                    <span>{number}</span>
+                <strong>
                     {title}
-                </div>
+                </strong>
 
-                <p>{text}</p>
+                <span>
+                    {text}
+                </span>
+            </div>
+        </div>
+    );
+}
+
+function ProcessStep({number,icon,title,text}){
+    return(
+        <div className="process-step">
+            <div className="process-icon">
+                {icon}
+            </div>
+
+            <div>
+                <span className="process-number">
+                    {number}
+                </span>
+
+                <strong>
+                    {title}
+                </strong>
+
+                <p>
+                    {text}
+                </p>
             </div>
         </div>
     );
@@ -927,8 +1055,10 @@ function Step({number,icon,title,text}){
 
 function Macro({label,value}){
     return(
-        <div className="macro">
-            <span>{label}</span>
+        <div className="macro-card">
+            <span>
+                {label}
+            </span>
 
             <strong>
                 {Number(value||0).toFixed(1)}
@@ -939,6 +1069,10 @@ function Macro({label,value}){
 }
 
 function formatUnit(unit,quantity){
+    if(!unit){
+        return "";
+    }
+
     if(unit==="gram"){
         return "grams";
     }
