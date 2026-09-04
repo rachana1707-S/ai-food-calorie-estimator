@@ -1,1217 +1,977 @@
+import {useEffect,useRef,useState} from "react";
 import {
-    useEffect,
-    useRef,
-    useState,
-} from "react";
-
-import {
-    Camera,
+    Apple,
+    Brain,
     CheckCircle2,
-    CloudUpload,
-    Flame,
-    Image as ImageIcon,
+    FolderOpen,
     Loader2,
+    PieChart,
+    Plus,
+    RefreshCw,
+    Scale,
     Sparkles,
-    Upload,
-    X,
-    Beef,
-    Wheat,
-    Droplets,
-    ScanSearch,
-    ArrowRight,
+    Trash2,
+    Upload
 } from "lucide-react";
-
-import { analyzeFoodImage } from "../services/api";
-
+import {
+    analyzeFoodImage,
+    estimateNutrition
+} from "../services/api";
 import "./ImageUpload.css";
 
+const MAX_FILE_SIZE=10*1024*1024;
 
-const MAX_FILE_SIZE =
-    10 * 1024 * 1024;
-
-const ALLOWED_FILE_TYPES = [
+const ALLOWED_FILE_TYPES=[
     "image/jpeg",
     "image/png",
-    "image/webp",
+    "image/webp"
 ];
 
+function ImageUpload(){
+    const inputRef=useRef(null);
 
-function ImageUpload() {
+    const[selectedFile,setSelectedFile]=useState(null);
+    const[preview,setPreview]=useState(null);
+    const[result,setResult]=useState(null);
+    const[selectedUnit,setSelectedUnit]=useState("");
+    const[quantity,setQuantity]=useState(1);
+    const[mealItems,setMealItems]=useState([]);
+    const[loading,setLoading]=useState(false);
+    const[nutritionLoading,setNutritionLoading]=useState(false);
+    const[error,setError]=useState("");
+    const[isDragging,setIsDragging]=useState(false);
 
-    const [image, setImage] =
-        useState(null);
+    const hasMealItems=mealItems.length>0;
+    const isResultMode=Boolean(result)||hasMealItems;
 
-    const [preview, setPreview] =
-        useState(null);
-
-    const [result, setResult] =
-        useState(null);
-
-    const [loading, setLoading] =
-        useState(false);
-
-    const [error, setError] =
-        useState("");
-
-    const [isDragging, setIsDragging] =
-        useState(false);
-
-
-    const fileInputRef =
-        useRef(null);
-
-
-    /*
-     * Clean up object URL when
-     * preview changes or component unmounts.
-     */
-    useEffect(() => {
-
-        return () => {
-
-            if (preview) {
-                URL.revokeObjectURL(
-                    preview
-                );
+    useEffect(()=>{
+        return()=>{
+            if(preview){
+                URL.revokeObjectURL(preview);
             }
-
         };
+    },[preview]);
 
-    }, [preview]);
+    const validateFile=(file)=>{
+        if(!ALLOWED_FILE_TYPES.includes(file.type)){
+            setError("Please upload a JPG, PNG, or WebP image.");
+            return false;
+        }
 
+        if(file.size>MAX_FILE_SIZE){
+            setError("Image must be smaller than 10MB.");
+            return false;
+        }
 
-    /*
-     * Validate and select an image.
-     *
-     * Used by both:
-     * 1. File browser
-     * 2. Drag and drop
-     */
-    const handleFile = (file) => {
+        return true;
+    };
 
-        if (!file) {
+    const handleFile=(file)=>{
+        if(!file||!validateFile(file)){
             return;
         }
 
-
-        if (
-            !ALLOWED_FILE_TYPES.includes(
-                file.type
-            )
-        ) {
-
-            setError(
-                "Please upload a JPG, PNG, or WEBP image."
-            );
-
-            return;
+        if(preview){
+            URL.revokeObjectURL(preview);
         }
 
-
-        if (
-            file.size > MAX_FILE_SIZE
-        ) {
-
-            setError(
-                "Image size must be 10 MB or less."
-            );
-
-            return;
-        }
-
-
-        if (preview) {
-
-            URL.revokeObjectURL(
-                preview
-            );
-
-        }
-
-
-        const previewUrl =
-            URL.createObjectURL(file);
-
-
-        setImage(file);
-
-        setPreview(previewUrl);
-
+        setSelectedFile(file);
+        setPreview(URL.createObjectURL(file));
         setResult(null);
-
+        setSelectedUnit("");
+        setQuantity(1);
         setError("");
     };
 
-
-    /*
-     * Regular file picker.
-     */
-    const handleImageChange = (
-        event
-    ) => {
-
-        const file =
-            event.target.files?.[0];
-
-        handleFile(file);
+    const handleFileChange=(event)=>{
+        handleFile(event.target.files[0]);
     };
 
-
-    /*
-     * Drag events.
-     */
-    const handleDragEnter = (
-        event
-    ) => {
-
+    const handleDragOver=(event)=>{
         event.preventDefault();
-
-        event.stopPropagation();
-
         setIsDragging(true);
     };
 
-
-    const handleDragOver = (
-        event
-    ) => {
-
+    const handleDragLeave=(event)=>{
         event.preventDefault();
-
-        event.stopPropagation();
-
-        setIsDragging(true);
-    };
-
-
-    const handleDragLeave = (
-        event
-    ) => {
-
-        event.preventDefault();
-
-        event.stopPropagation();
-
-
-        /*
-         * Prevent flickering when
-         * moving over child elements.
-         */
-        if (
-            event.currentTarget.contains(
-                event.relatedTarget
-            )
-        ) {
-            return;
-        }
-
-
         setIsDragging(false);
     };
 
-
-    const handleDrop = (
-        event
-    ) => {
-
+    const handleDrop=(event)=>{
         event.preventDefault();
-
-        event.stopPropagation();
-
         setIsDragging(false);
 
-
-        const file =
-            event.dataTransfer
-                .files?.[0];
-
-
+        const file=event.dataTransfer.files[0];
         handleFile(file);
     };
 
-
-    const removeImage = () => {
-
-        if (preview) {
-
-            URL.revokeObjectURL(
-                preview
-            );
-
-        }
-
-
-        setImage(null);
-
-        setPreview(null);
-
-        setResult(null);
-
-        setError("");
-
-        setIsDragging(false);
-
-
-        if (fileInputRef.current) {
-
-            fileInputRef.current.value =
-                "";
-
-        }
-    };
-
-
-    const uploadImage = async () => {
-
-        if (!image) {
-
-            setError(
-                "Please select a food image first."
-            );
-
+    const handleAnalyze=async()=>{
+        if(!selectedFile){
+            setError("Please select an image first.");
             return;
         }
 
-
-        try {
-
+        try{
             setLoading(true);
-
             setError("");
 
-            setResult(null);
-
-
-            const data =
-                await analyzeFoodImage(
-                    image
-                );
-
+            const data=await analyzeFoodImage(selectedFile);
 
             setResult(data);
 
-        } catch (err) {
+            if(data.portion_options?.length){
+                const firstUnit=data.portion_options[0].value;
 
-            console.error(err);
-
-
-            setError(
-                err.message ||
-                "Something went wrong while analyzing the image."
-            );
-
-        } finally {
-
+                setSelectedUnit(firstUnit);
+                setQuantity(firstUnit==="gram"?100:1);
+            }
+        }catch(err){
+            setError(err.message);
+        }finally{
             setLoading(false);
-
         }
     };
 
-
-    const formatFoodName = (
-        name
-    ) => {
-
-        if (!name) {
-            return "";
+    const handleAddFood=async()=>{
+        if(!result){
+            return;
         }
 
+        const numericQuantity=Number(quantity);
 
-        return name
-            .replaceAll("_", " ")
-            .replace(
-                /\b\w/g,
-                (char) =>
-                    char.toUpperCase()
+        if(!selectedUnit){
+            setError("Please select a portion unit.");
+            return;
+        }
+
+        if(!numericQuantity||numericQuantity<=0){
+            setError("Please enter a valid quantity.");
+            return;
+        }
+
+        try{
+            setNutritionLoading(true);
+            setError("");
+
+            const nutrition=await estimateNutrition(
+                result.food,
+                selectedUnit,
+                numericQuantity
             );
+
+            const mealItem={
+                id:crypto.randomUUID(),
+                food:result.food,
+                confidence:result.confidence,
+                image:preview,
+                unit:selectedUnit,
+                quantity:numericQuantity,
+                grams:nutrition.grams,
+                nutrition:nutrition.nutrition
+            };
+
+            setMealItems((current)=>[
+                ...current,
+                mealItem
+            ]);
+
+            setSelectedFile(null);
+            setPreview(null);
+            setResult(null);
+            setSelectedUnit("");
+            setQuantity(1);
+
+            if(inputRef.current){
+                inputRef.current.value="";
+            }
+        }catch(err){
+            setError(err.message);
+        }finally{
+            setNutritionLoading(false);
+        }
     };
 
+    const handleAddAnother=()=>{
+        setSelectedFile(null);
+        setPreview(null);
+        setResult(null);
+        setSelectedUnit("");
+        setQuantity(1);
+        setError("");
 
-    return (
+        if(inputRef.current){
+            inputRef.current.value="";
+        }
 
-        <div className="food-app">
+        inputRef.current?.click();
+    };
 
-            {/* Decorative background */}
+    const handleRemoveFood=(id)=>{
+        setMealItems((current)=>
+            current.filter((item)=>item.id!==id)
+        );
+    };
 
-            <div
-                className="bg-shape bg-shape-one"
-            />
+    const handleClearMeal=()=>{
+        setMealItems([]);
+        setSelectedFile(null);
+        setPreview(null);
+        setResult(null);
+        setSelectedUnit("");
+        setQuantity(1);
+        setError("");
 
-            <div
-                className="bg-shape bg-shape-two"
-            />
+        if(inputRef.current){
+            inputRef.current.value="";
+        }
+    };
 
+    const handleUnitChange=(unit)=>{
+        setSelectedUnit(unit);
 
-            {/* ================= NAVBAR ================= */}
+        if(unit==="gram"){
+            setQuantity(100);
+        }else{
+            setQuantity(1);
+        }
+    };
 
+    const decreaseQuantity=()=>{
+        const current=Number(quantity)||0;
+
+        if(selectedUnit==="gram"){
+            setQuantity(Math.max(current-10,1));
+            return;
+        }
+
+        setQuantity(Math.max(current-0.5,0.5));
+    };
+
+    const increaseQuantity=()=>{
+        const current=Number(quantity)||0;
+
+        if(selectedUnit==="gram"){
+            setQuantity(current+10);
+            return;
+        }
+
+        setQuantity(current+1);
+    };
+
+    const mealTotals=mealItems.reduce(
+        (totals,item)=>{
+            totals.calories+=Number(
+                item.nutrition?.calories||0
+            );
+
+            totals.protein+=Number(
+                item.nutrition?.protein||0
+            );
+
+            totals.carbohydrates+=Number(
+                item.nutrition?.carbohydrates||0
+            );
+
+            totals.fat+=Number(
+                item.nutrition?.fat||0
+            );
+
+            return totals;
+        },
+        {
+            calories:0,
+            protein:0,
+            carbohydrates:0,
+            fat:0
+        }
+    );
+
+    return(
+        <div className={`app-shell ${isResultMode?"result-mode":""}`}>
             <header className="navbar">
-
-                <div className="navbar-inner">
-
-                    <div className="brand">
-
-                        <div className="brand-logo">
-
-                            <Sparkles
-                                size={20}
-                            />
-
-                        </div>
-
-
-                        <div className="brand-text">
-
-                            <h1>
-                                FoodAI
-                            </h1>
-
-                            <span>
-                                Smart Nutrition
-                            </span>
-
-                        </div>
-
+                <div className="brand">
+                    <div className="brand-icon">
+                        <Apple size={21}/>
                     </div>
 
+                    <span className="brand-name">
+                        Food<span>AI</span>
+                    </span>
 
-                    <div className="ai-status">
-
-                        <span
-                            className="status-indicator"
-                        />
-
-                        AI Online
-
-                    </div>
-
+                    <span className="brand-subtitle">
+                        Smart Nutrition
+                    </span>
                 </div>
 
+                <div className="status-badge">
+                    <span className="status-dot"></span>
+                    AI Online
+                </div>
             </header>
 
+            <input
+                ref={inputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleFileChange}
+                hidden
+            />
 
-            <main className="main-container">
-
-
-                {/* ================= HERO ================= */}
-
-                <section className="hero">
-
-                    <div className="hero-badge">
-
-                        <Sparkles
-                            size={14}
-                        />
-
-                        AI-POWERED FOOD ANALYSIS
-
-                    </div>
-
-
-                    <h2>
-
-                        Know what's
-
-                        <br />
-
-                        <span>
-                            on your plate.
-                        </span>
-
-                    </h2>
-
-
-                    <p>
-
-                        Take a photo of your meal
-                        and let FoodAI identify the
-                        food and provide nutritional
-                        insights in seconds.
-
-                    </p>
-
-
-                    <div className="hero-points">
-
-                        <div>
-
-                            <CheckCircle2
-                                size={16}
-                            />
-
-                            Food Recognition
-
+            {!isResultMode?(
+                <main className="landing-page">
+                    <section className="hero">
+                        <div className="hero-badge">
+                            <Sparkles size={13}/>
+                            AI-POWERED FOOD ANALYSIS
                         </div>
 
+                        <h1>
+                            Know what's <span>on your plate.</span>
+                        </h1>
 
-                        <div>
+                        <p>
+                            Upload a food photo, let AI identify it,
+                            then enter the portion you consumed for a
+                            more accurate nutrition estimate.
+                        </p>
 
-                            <CheckCircle2
-                                size={16}
-                            />
-
-                            Calorie Estimates
-
+                        <div className="feature-row">
+                            <FeatureItem text="Food Recognition"/>
+                            <FeatureItem text="Calorie Estimates"/>
+                            <FeatureItem text="Multiple Foods"/>
                         </div>
+                    </section>
 
-
-                        <div>
-
-                            <CheckCircle2
-                                size={16}
+                    <section className="upload-card">
+                        {!preview?(
+                            <UploadZone
+                                inputRef={inputRef}
+                                isDragging={isDragging}
+                                handleDragOver={handleDragOver}
+                                handleDragLeave={handleDragLeave}
+                                handleDrop={handleDrop}
                             />
-
-                            Nutrition Insights
-
-                        </div>
-
-                    </div>
-
-                </section>
-
-
-
-                {/* ================= UPLOAD ================= */}
-
-                <section className="upload-section">
-
-                    <div className="upload-card">
-
-
-                        {!preview ? (
-
-                            <label
-                                htmlFor="food-image"
-                                className={`drop-zone ${
-                                    isDragging
-                                        ? "dragging"
-                                        : ""
-                                }`}
-                                onDragEnter={
-                                    handleDragEnter
-                                }
-                                onDragOver={
-                                    handleDragOver
-                                }
-                                onDragLeave={
-                                    handleDragLeave
-                                }
-                                onDrop={
-                                    handleDrop
-                                }
-                            >
-
-                                <div className="upload-icon-wrapper">
-
-                                    <CloudUpload
-                                        size={34}
-                                    />
-
-                                </div>
-
-
-                                <h3>
-
-                                    {isDragging
-                                        ? "Drop your food image here"
-                                        : "Upload your food"}
-
-                                </h3>
-
-
-                                <p>
-
-                                    {isDragging
-                                        ? "Release the image to upload"
-                                        : (
-                                            <>
-                                                Drag & drop your
-                                                image here or browse
-                                                your device
-                                            </>
-                                        )}
-
-                                </p>
-
-
-                                <div className="file-types">
-
-                                    <span>
-                                        JPG
-                                    </span>
-
-                                    <span>
-                                        PNG
-                                    </span>
-
-                                    <span>
-                                        WEBP
-                                    </span>
-
-                                    <span>
-                                        MAX 10MB
-                                    </span>
-
-                                </div>
-
-
-                                <div className="choose-button">
-
-                                    <Upload
-                                        size={16}
-                                    />
-
-                                    Choose Image
-
-                                </div>
-
-                            </label>
-
-                        ) : (
-
-                            <div className="preview-container">
-
-
-                                <div className="preview-header">
-
-                                    <div>
-
-                                        <span>
-                                            READY TO ANALYZE
-                                        </span>
-
-                                        <p>
-                                            {image?.name}
-                                        </p>
-
-                                    </div>
-
-
-                                    <button
-                                        type="button"
-                                        onClick={
-                                            removeImage
-                                        }
-                                        className="remove-button"
-                                        aria-label="Remove selected image"
-                                    >
-
-                                        <X
-                                            size={18}
-                                        />
-
-                                    </button>
-
-                                </div>
-
-
-                                <div className="preview-wrapper">
-
+                        ):(
+                            <div className="selected-image-layout">
+                                <div className="selected-image-panel">
                                     <img
                                         src={preview}
                                         alt="Selected food"
+                                        className="selected-image"
                                     />
-
-
-                                    <div className="preview-status">
-
-                                        <ImageIcon
-                                            size={14}
-                                        />
-
-                                        Image ready
-
-                                    </div>
-
                                 </div>
 
+                                <div className="selected-image-actions">
+                                    <span className="eyebrow">
+                                        READY TO ANALYZE
+                                    </span>
+
+                                    <h3>
+                                        {selectedFile?.name}
+                                    </h3>
+
+                                    <p>
+                                        Our AI will identify the food
+                                        and suggest portion options.
+                                    </p>
+
+                                    <div className="action-buttons">
+                                        <button
+                                            type="button"
+                                            className="secondary-button"
+                                            onClick={()=>
+                                                inputRef.current?.click()
+                                            }
+                                        >
+                                            <RefreshCw size={15}/>
+                                            Change
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            className="primary-button"
+                                            onClick={handleAnalyze}
+                                            disabled={loading}
+                                        >
+                                            {loading?(
+                                                <>
+                                                    <Loader2
+                                                        size={15}
+                                                        className="spin"
+                                                    />
+                                                    Analyzing...
+                                                </>
+                                            ):(
+                                                <>
+                                                    <Sparkles size={15}/>
+                                                    Analyze Food
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-
                         )}
-
-
-                        <input
-                            ref={fileInputRef}
-                            id="food-image"
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            onChange={
-                                handleImageChange
-                            }
-                            hidden
-                        />
-
-
-                        <button
-                            className="analyze-button"
-                            onClick={
-                                uploadImage
-                            }
-                            disabled={
-                                !image ||
-                                loading
-                            }
-                        >
-
-                            {loading ? (
-
-                                <>
-
-                                    <Loader2
-                                        className="spin"
-                                        size={19}
-                                    />
-
-                                    Analyzing...
-
-                                </>
-
-                            ) : (
-
-                                <>
-
-                                    <ScanSearch
-                                        size={19}
-                                    />
-
-                                    Analyze My Food
-
-                                    <ArrowRight
-                                        size={18}
-                                    />
-
-                                </>
-
-                            )}
-
-                        </button>
-
-
-                        {error && (
-
-                            <div className="error-message">
-
-                                <X
-                                    size={17}
-                                />
-
-                                {error}
-
-                            </div>
-
-                        )}
-
-                    </div>
-
-                </section>
-
-
-
-                {/* ================= LOADING ================= */}
-
-                {loading && (
-
-                    <section className="loading-card">
-
-                        <div className="loading-animation">
-
-                            <Sparkles
-                                size={23}
-                            />
-
-                        </div>
-
-
-                        <div>
-
-                            <h3>
-                                AI is analyzing your meal
-                            </h3>
-
-                            <p>
-
-                                Identifying the food and
-                                retrieving nutrition
-                                information...
-
-                            </p>
-
-                        </div>
-
                     </section>
 
-                )}
-
-
-
-                {/* ================= RESULTS ================= */}
-
-                {result && !loading && (
-
-                    <section className="results-section">
-
-
-                        <div className="results-title">
-
-                            <div>
-
-                                <span>
-                                    ANALYSIS COMPLETE
-                                </span>
-
-                                <h2>
-                                    Your Food Insights
-                                </h2>
-
-                            </div>
-
-
-                            <div className="success-badge">
-
-                                <CheckCircle2
-                                    size={20}
-                                />
-
-                                Complete
-
-                            </div>
-
+                    {error&&(
+                        <div className="error-message">
+                            {error}
                         </div>
+                    )}
 
+                    <section className="how-it-works">
+                        <Step
+                            number="1"
+                            icon={<Upload size={18}/>}
+                            title="Upload"
+                            text="Add a food photo"
+                        />
 
+                        <Step
+                            number="2"
+                            icon={<Brain size={18}/>}
+                            title="Recognize"
+                            text="AI identifies it"
+                        />
 
-                        {/* ================= PREDICTION ================= */}
+                        <Step
+                            number="3"
+                            icon={<Scale size={18}/>}
+                            title="Portion"
+                            text="Enter what you ate"
+                        />
 
-                        <div className="prediction-grid">
-
-
-                            <div className="result-image-card">
-
-                                <img
-                                    src={preview}
-                                    alt={
-                                        formatFoodName(
-                                            result.food
-                                        )
-                                    }
-                                />
-
-
-                                <div className="image-label">
-
-                                    <Camera
-                                        size={14}
+                        <Step
+                            number="4"
+                            icon={<PieChart size={18}/>}
+                            title="Nutrition"
+                            text="View meal totals"
+                        />
+                    </section>
+                </main>
+            ):(
+                <main className="meal-layout">
+                    <section className="analysis-panel">
+                        {result?(
+                            <>
+                                <div className="analysis-image-wrapper">
+                                    <img
+                                        src={preview}
+                                        alt="Analyzed food"
+                                        className="analysis-image"
                                     />
-
-                                    Analyzed Image
-
                                 </div>
 
-                            </div>
-
-
-
-                            <div className="prediction-card">
-
-                                <span className="result-label">
-
-                                    AI PREDICTION
-
-                                </span>
-
-
-                                <h3>
-
-                                    {formatFoodName(
-                                        result.food
-                                    )}
-
-                                </h3>
-
-
-                                <div className="confidence">
-
-
-                                    <div className="confidence-header">
-
-                                        <span>
-                                            Confidence
+                                <div className="prediction-card">
+                                    <div>
+                                        <span className="eyebrow">
+                                            AI RESULT
                                         </span>
 
+                                        <h2>
+                                            {result.food.replaceAll("_"," ")}
+                                        </h2>
+
+                                        <p>
+                                            EfficientNetV2B0 • Food-101
+                                        </p>
+                                    </div>
+
+                                    <div className="confidence-box">
+                                        <span>Confidence</span>
 
                                         <strong>
                                             {result.confidence}%
                                         </strong>
-
                                     </div>
-
-
-                                    <div className="confidence-track">
-
-                                        <div
-                                            className="confidence-value"
-                                            style={{
-                                                width: `${Math.min(
-                                                    Math.max(
-                                                        Number(
-                                                            result.confidence
-                                                        ) || 0,
-                                                        0
-                                                    ),
-                                                    100
-                                                )}%`,
-                                            }}
-                                        />
-
-                                    </div>
-
-
-                                    <p>
-
-                                        FoodAI's computer
-                                        vision model
-                                        recognized this food
-                                        with this confidence
-                                        score.
-
-                                    </p>
-
                                 </div>
 
+                                <div className="portion-card">
+                                    <div className="portion-heading">
+                                        <div className="portion-heading-icon">
+                                            <Scale size={17}/>
+                                        </div>
 
-                                <div className="model-info">
+                                        <div>
+                                            <h3>
+                                                How much did you eat?
+                                            </h3>
 
-                                    <Sparkles
-                                        size={14}
-                                    />
+                                            <p>
+                                                Choose a unit and enter
+                                                the amount consumed.
+                                            </p>
+                                        </div>
+                                    </div>
 
-                                    EfficientNetV2B0
+                                    <div className="portion-control">
+                                        <div className="quantity-control">
+                                            <label>Amount</label>
 
-                                    <span>
-                                        •
-                                    </span>
+                                            <div className="quantity-input">
+                                                <button
+                                                    type="button"
+                                                    onClick={decreaseQuantity}
+                                                >
+                                                    −
+                                                </button>
 
-                                    Food-101
+                                                <input
+                                                    type="number"
+                                                    min="0.1"
+                                                    step={
+                                                        selectedUnit==="gram"
+                                                            ?"1"
+                                                            :"0.5"
+                                                    }
+                                                    value={quantity}
+                                                    onChange={(event)=>
+                                                        setQuantity(
+                                                            event.target.value
+                                                        )
+                                                    }
+                                                />
 
+                                                <button
+                                                    type="button"
+                                                    onClick={increaseQuantity}
+                                                >
+                                                    +
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="unit-control">
+                                            <label>Unit</label>
+
+                                            <div className="unit-options">
+                                                {result.portion_options?.map(
+                                                    (option)=>(
+                                                        <button
+                                                            key={option.value}
+                                                            type="button"
+                                                            className={`unit-option ${
+                                                                selectedUnit===option.value
+                                                                    ?"selected"
+                                                                    :""
+                                                            }`}
+                                                            onClick={()=>
+                                                                handleUnitChange(
+                                                                    option.value
+                                                                )
+                                                            }
+                                                        >
+                                                            {option.label}
+                                                        </button>
+                                                    )
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        className="primary-button add-food-button"
+                                        onClick={handleAddFood}
+                                        disabled={
+                                            nutritionLoading||
+                                            !quantity||
+                                            !selectedUnit
+                                        }
+                                    >
+                                        {nutritionLoading?(
+                                            <>
+                                                <Loader2
+                                                    size={15}
+                                                    className="spin"
+                                                />
+                                                Calculating...
+                                            </>
+                                        ):(
+                                            <>
+                                                <Plus size={15}/>
+                                                Add to Meal
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </>
+                        ):(
+                            <div className="add-food-state">
+                                <div className="add-food-icon">
+                                    <Plus size={26}/>
                                 </div>
 
-                            </div>
-
-                        </div>
-
-
-
-                        {/* ================= NUTRITION ================= */}
-
-                        <div className="nutrition-section">
-
-
-                            <div className="section-heading">
-
-                                <span>
-                                    NUTRITION BREAKDOWN
+                                <span className="eyebrow">
+                                    ADD ANOTHER FOOD
                                 </span>
 
                                 <h2>
-                                    What's in your food?
+                                    What's else on your plate?
                                 </h2>
 
+                                <p>
+                                    Add another food image and FoodAI
+                                    will include it in your meal total.
+                                </p>
+
+                                <button
+                                    type="button"
+                                    className="primary-button"
+                                    onClick={()=>
+                                        inputRef.current?.click()
+                                    }
+                                >
+                                    <FolderOpen size={15}/>
+                                    Choose Food Image
+                                </button>
+
+                                {preview&&(
+                                    <button
+                                        type="button"
+                                        className="secondary-button"
+                                        onClick={handleAnalyze}
+                                    >
+                                        Analyze Food
+                                    </button>
+                                )}
                             </div>
-
-
-                            <div className="nutrition-grid">
-
-
-                                <NutritionCard
-                                    icon={
-                                        <Flame />
-                                    }
-                                    label="Calories"
-                                    value={
-                                        result.nutrition
-                                            ?.nutrition
-                                            ?.calories
-                                            ?.value
-                                    }
-                                    unit="kcal"
-                                />
-
-
-                                <NutritionCard
-                                    icon={
-                                        <Beef />
-                                    }
-                                    label="Protein"
-                                    value={
-                                        result.nutrition
-                                            ?.nutrition
-                                            ?.protein
-                                            ?.value
-                                    }
-                                    unit="g"
-                                />
-
-
-                                <NutritionCard
-                                    icon={
-                                        <Wheat />
-                                    }
-                                    label="Carbohydrates"
-                                    value={
-                                        result.nutrition
-                                            ?.nutrition
-                                            ?.carbohydrates
-                                            ?.value
-                                    }
-                                    unit="g"
-                                />
-
-
-                                <NutritionCard
-                                    icon={
-                                        <Droplets />
-                                    }
-                                    label="Fat"
-                                    value={
-                                        result.nutrition
-                                            ?.nutrition
-                                            ?.fat
-                                            ?.value
-                                    }
-                                    unit="g"
-                                />
-
-                            </div>
-
-                        </div>
-
-
-
-                        {/* ================= USDA ================= */}
-
-                        {result.nutrition
-                            ?.food_name && (
-
-                            <div className="source-card">
-
-                                <div className="source-check">
-
-                                    <CheckCircle2
-                                        size={18}
-                                    />
-
-                                </div>
-
-
-                                <div>
-
-                                    <span>
-                                        VERIFIED NUTRITION SOURCE
-                                    </span>
-
-
-                                    <p>
-                                        USDA FoodData Central
-                                    </p>
-
-
-                                    <small>
-
-                                        Matched food:{" "}
-
-                                        {
-                                            result
-                                                .nutrition
-                                                .food_name
-                                        }
-
-                                    </small>
-
-                                </div>
-
-                            </div>
-
                         )}
 
+                        {!result&&preview&&(
+                            <div className="new-food-preview">
+                                <img
+                                    src={preview}
+                                    alt="New food"
+                                />
+
+                                <div>
+                                    <span className="eyebrow">
+                                        NEW FOOD
+                                    </span>
+
+                                    <h3>
+                                        {selectedFile?.name}
+                                    </h3>
+
+                                    <button
+                                        type="button"
+                                        className="primary-button"
+                                        onClick={handleAnalyze}
+                                        disabled={loading}
+                                    >
+                                        {loading?(
+                                            <>
+                                                <Loader2
+                                                    size={15}
+                                                    className="spin"
+                                                />
+                                                Analyzing...
+                                            </>
+                                        ):(
+                                            <>
+                                                <Sparkles size={15}/>
+                                                Analyze
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {error&&(
+                            <div className="error-message result-error">
+                                {error}
+                            </div>
+                        )}
                     </section>
 
-                )}
+                    <section className="meal-panel">
+                        <div className="meal-heading">
+                            <div>
+                                <span className="eyebrow">
+                                    YOUR MEAL
+                                </span>
 
+                                <h2>
+                                    Meal Summary
+                                </h2>
+                            </div>
 
-
-                {/* ================= HOW IT WORKS ================= */}
-
-                {!result &&
-                    !loading && (
-
-                    <section className="how-section">
-
-
-                        <div className="section-heading centered">
-
-                            <span>
-                                SIMPLE & FAST
+                            <span className="meal-count">
+                                {mealItems.length}{" "}
+                                {mealItems.length===1
+                                    ?"item"
+                                    :"items"}
                             </span>
-
-                            <h2>
-                                From photo to insights.
-                            </h2>
-
                         </div>
 
+                        {mealItems.length===0?(
+                            <div className="empty-meal">
+                                <Apple size={28}/>
 
-                        <div className="steps">
+                                <h3>
+                                    No foods added yet
+                                </h3>
 
+                                <p>
+                                    Enter the portion above and add
+                                    the first food to your meal.
+                                </p>
+                            </div>
+                        ):(
+                            <>
+                                <div className="meal-items">
+                                    {mealItems.map((item)=>(
+                                        <div
+                                            className="meal-item"
+                                            key={item.id}
+                                        >
+                                            <img
+                                                src={item.image}
+                                                alt={item.food}
+                                            />
 
-                            <Step
-                                number="01"
-                                icon={
-                                    <Upload />
-                                }
-                                title="Upload"
-                                description="Choose or drag and drop a clear photo of your food."
-                            />
+                                            <div className="meal-item-info">
+                                                <strong>
+                                                    {item.food.replaceAll(
+                                                        "_",
+                                                        " "
+                                                    )}
+                                                </strong>
 
+                                                <span>
+                                                    {item.quantity}{" "}
+                                                    {formatUnit(
+                                                        item.unit,
+                                                        item.quantity
+                                                    )}
+                                                    {" • "}
+                                                    {item.grams}g
+                                                </span>
+                                            </div>
 
-                            <Step
-                                number="02"
-                                icon={
-                                    <ScanSearch />
-                                }
-                                title="AI Analysis"
-                                description="EfficientNetV2B0 identifies your food."
-                            />
+                                            <div className="meal-item-calories">
+                                                <strong>
+                                                    {roundValue(
+                                                        item.nutrition?.calories
+                                                    )}
+                                                </strong>
 
+                                                <span>kcal</span>
+                                            </div>
 
-                            <Step
-                                number="03"
-                                icon={
-                                    <Flame />
-                                }
-                                title="Get Insights"
-                                description="See calories and nutrition information."
-                            />
+                                            <button
+                                                type="button"
+                                                className="delete-food"
+                                                title="Remove food"
+                                                onClick={()=>
+                                                    handleRemoveFood(item.id)
+                                                }
+                                            >
+                                                <Trash2 size={14}/>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
 
-                        </div>
+                                <div className="meal-total">
+                                    <div className="total-calories">
+                                        <div>
+                                            <span>
+                                                Total Calories
+                                            </span>
 
+                                            <p>
+                                                Combined meal estimate
+                                            </p>
+                                        </div>
+
+                                        <strong>
+                                            {Math.round(
+                                                mealTotals.calories
+                                            )}
+                                            <small> kcal</small>
+                                        </strong>
+                                    </div>
+
+                                    <div className="macro-summary">
+                                        <Macro
+                                            label="Protein"
+                                            value={mealTotals.protein}
+                                        />
+
+                                        <Macro
+                                            label="Carbs"
+                                            value={
+                                                mealTotals.carbohydrates
+                                            }
+                                        />
+
+                                        <Macro
+                                            label="Fat"
+                                            value={mealTotals.fat}
+                                        />
+                                    </div>
+
+                                    <div className="meal-source">
+                                        <CheckCircle2 size={13}/>
+                                        USDA FoodData Central
+                                    </div>
+                                </div>
+
+                                <div className="meal-actions">
+                                    <button
+                                        type="button"
+                                        className="primary-button add-another-button"
+                                        onClick={handleAddAnother}
+                                    >
+                                        <Plus size={15}/>
+                                        Add Another Food
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="secondary-button"
+                                        onClick={handleClearMeal}
+                                    >
+                                        <RefreshCw size={14}/>
+                                        Start New Meal
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </section>
-
-                )}
-
-            </main>
-
-
-
-            {/* ================= FOOTER ================= */}
-
-            <footer>
-
-                <span>
-                    FoodAI
-                </span>
-
-                <p>
-                    AI-powered food recognition &
-                    nutrition analysis
-                </p>
-
-            </footer>
-
+                </main>
+            )}
         </div>
     );
 }
 
-
-
-function NutritionCard({
-    icon,
-    label,
-    value,
-    unit,
-}) {
-
-    return (
-
-        <div className="nutrition-card">
-
-
-            <div className="nutrition-icon">
-
-                {icon}
-
+function UploadZone({
+    inputRef,
+    isDragging,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop
+}){
+    return(
+        <div
+            className={`drop-zone ${isDragging?"dragging":""}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={()=>
+                inputRef.current?.click()
+            }
+        >
+            <div className="upload-icon">
+                <Upload size={26}/>
             </div>
 
-
-            <div>
-
-                <span>
-                    {label}
-                </span>
-
-
-                <h3>
-
-                    {value ?? "--"}
-
-
-                    {value != null && (
-
-                        <small>
-                            {unit}
-                        </small>
-
-                    )}
-
-                </h3>
-
-            </div>
-
-        </div>
-
-    );
-}
-
-
-
-function Step({
-    number,
-    icon,
-    title,
-    description,
-}) {
-
-    return (
-
-        <div className="step-card">
-
-
-            <span className="step-number">
-
-                {number}
-
-            </span>
-
-
-            <div className="step-icon">
-
-                {icon}
-
-            </div>
-
-
-            <h3>
-                {title}
-            </h3>
-
+            <h2>
+                Upload your food image
+            </h2>
 
             <p>
-                {description}
+                Drag & drop or click to browse
             </p>
 
-        </div>
+            <span className="formats">
+                JPG • PNG • WEBP • MAX 10MB
+            </span>
 
+            <button
+                type="button"
+                className="primary-button"
+                onClick={(event)=>{
+                    event.stopPropagation();
+                    inputRef.current?.click();
+                }}
+            >
+                <FolderOpen size={15}/>
+                Choose Image
+            </button>
+        </div>
     );
 }
 
+function FeatureItem({text}){
+    return(
+        <div className="feature-item">
+            <CheckCircle2 size={15}/>
+            {text}
+        </div>
+    );
+}
 
+function Step({number,icon,title,text}){
+    return(
+        <div className="step">
+            <div className="step-icon">
+                {icon}
+            </div>
+
+            <div>
+                <div className="step-title">
+                    <span>{number}</span>
+                    {title}
+                </div>
+
+                <p>{text}</p>
+            </div>
+        </div>
+    );
+}
+
+function Macro({label,value}){
+    return(
+        <div className="macro">
+            <span>{label}</span>
+
+            <strong>
+                {Number(value||0).toFixed(1)}
+                <small>g</small>
+            </strong>
+        </div>
+    );
+}
+
+function formatUnit(unit,quantity){
+    if(unit==="gram"){
+        return "grams";
+    }
+
+    if(Number(quantity)===1){
+        return unit;
+    }
+
+    if(unit==="piece"){
+        return "pieces";
+    }
+
+    if(unit==="slice"){
+        return "slices";
+    }
+
+    if(unit==="serving"){
+        return "servings";
+    }
+
+    if(unit==="cup"){
+        return "cups";
+    }
+
+    return `${unit}s`;
+}
+
+function roundValue(value){
+    if(value===undefined||value===null){
+        return "--";
+    }
+
+    return Math.round(Number(value));
+}
 
 export default ImageUpload;
